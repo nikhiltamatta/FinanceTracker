@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  passwordHash       String
+  name               String?
+  emailVerified      Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  settings           UserSettings?
+  obligations        Obligation[]
+  incomeEntries      IncomeEntry[]
+  allocationSnapshots AllocationSnapshot[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model UserSettings {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payFrequency         String   @default("weekly")
+  payDayOfWeek         Int      @default(5)
+  expectedPayAmount    Float    @default(0)
+  bufferAmount         Float    @default(0)
+  savingsPercent       Float    @default(0)
+  viewMode             String   @default("weekly")
+  planningHorizonWeeks Int      @default(4)
+  currency             String   @default("EUR")
+  accountBalance       Float    @default(0)
+  onboardingComplete   Boolean  @default(false)
+  paidResetYearMonth   String?
+  rolloverSafeToSpend  Boolean  @default(false)
+  incomeAverageWeeks   Int      @default(4)
+  emailReminders       Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Obligation {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  category         String
+  amount           Float
+  dueRuleType      String
+  dueDayOfMonth    Int?
+  dueEveryNWeeks   Int?
+  dueOneOffDate    DateTime?
+  priority         String    @default("must_pay")
+  active           Boolean   @default(true)
+  paidThisMonth    Boolean   @default(false)
+  lender           String?
+  note             String?
+  minimumDue       Float?
+  statementBalance Float?
+  loanEndDate      DateTime?
+  interestRate     Float?
+  payments         Payment[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Payment {
+  id           String     @id @default(cuid())
+  obligationId String
+  obligation   Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  paidAt       DateTime   @default(now())
+  amount       Float
+  dueDate      DateTime?
+  note         String?
+  createdAt    DateTime   @default(now())
+}
+
+model IncomeEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  amount    Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AllocationSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart  DateTime
+  periodEnd    DateTime
+  mustHold     Float
+  safeToSpend  Float
+  catchUp      Float
+  incomeUsed   Float
+  computedAt   DateTime @default(now())
+
+  @@index([userId, computedAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
