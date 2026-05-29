@@ -2,8 +2,21 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
+/** Bump when Prisma schema adds models so dev HMR refreshes the singleton. */
+const PRISMA_SCHEMA_VERSION = 3;
+
+const REQUIRED_DELEGATES = [
+  "allocationSnapshot",
+  "passwordResetToken",
+  "savingsGoal",
+  "recurringIncome",
+  "household",
+  "householdMember",
+] as const;
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaSchemaVersion?: number;
 };
 
 function getConnectionString(): string {
@@ -23,21 +36,35 @@ function createPrismaClient(): PrismaClient {
 
 /** Dev HMR can keep an old Prisma singleton from before schema/client regenerate. */
 function isClientCurrent(client: PrismaClient): boolean {
-  return (
-    typeof client.allocationSnapshot?.findMany === "function" &&
-    typeof client.passwordResetToken?.findMany === "function"
-  );
+  return REQUIRED_DELEGATES.every((key) => {
+    const delegate = client[key as keyof PrismaClient] as
+      | { findMany?: unknown }
+      | undefined;
+    return typeof delegate?.findMany === "function";
+  });
 }
 
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma;
-  if (cached && isClientCurrent(cached)) {
+  if (
+    cached &&
+    globalForPrisma.prismaSchemaVersion === PRISMA_SCHEMA_VERSION &&
+    isClientCurrent(cached)
+  ) {
     return cached;
   }
+
   const client = createPrismaClient();
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
+
+  if (!isClientCurrent(client)) {
+    throw new Error(
+      "Prisma client is out of date. Run: npx prisma generate && restart npm run dev",
+    );
   }
+
+  globalForPrisma.prisma = client;
+  globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
+
   return client;
 }
 

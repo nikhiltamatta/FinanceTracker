@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 
 /** Create missing paycheck entries from active recurring templates (last 8 weeks). */
 export async function syncRecurringIncome(userId: string) {
+  if (!prisma.recurringIncome?.findMany) return { created: 0 };
+
   const templates = await prisma.recurringIncome.findMany({
     where: { userId, active: true },
   });

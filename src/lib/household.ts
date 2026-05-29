@@ -6,6 +6,8 @@ function generateInviteCode(): string {
 }
 
 export async function getUserHousehold(userId: string) {
+  if (!prisma.householdMember?.findFirst) return null;
+
   const membership = await prisma.householdMember.findFirst({
     where: { userId },
     include: {
