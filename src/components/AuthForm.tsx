@@ -92,6 +92,7 @@ export function LoginForm() {
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>
+        <GoogleSignInButton />
       </form>
     </AuthCard>
   );
@@ -186,8 +187,32 @@ export function SignupForm() {
         >
           {loading ? "Creating account…" : "Create account"}
         </button>
+        <GoogleSignInButton />
       </form>
     </AuthCard>
+  );
+}
+
+function GoogleSignInButton() {
+  return (
+    <>
+      <div className="relative my-2">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-white px-2 text-zinc-500 dark:bg-zinc-900">
+            or
+          </span>
+        </div>
+      </div>
+      <a
+        href="/api/auth/google"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+      >
+        Continue with Google
+      </a>
+    </>
   );
 }
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isSession, requireApiSession } from "@/lib/api-auth";
-import { parseIncomeCsv, parseObligationsCsv } from "@/lib/csv-import";
+import {
+  previewIncomeCsv,
+  previewObligationsCsv,
+} from "@/lib/csv-import";
 import { prisma } from "@/lib/db";
 import { buildObligationCreate } from "@/lib/obligation-payload";
 
@@ -9,16 +12,26 @@ export async function POST(request: Request) {
   if (!isSession(session)) return session;
 
   const body = await request.json();
-  const { type, csv } = body as { type: "income" | "obligations"; csv: string };
+  const { type, csv, skipPreview } = body as {
+    type: "income" | "obligations";
+    csv: string;
+    skipPreview?: boolean;
+  };
 
   if (!csv || !type) {
     return NextResponse.json({ error: "type and csv required" }, { status: 400 });
   }
 
   if (type === "income") {
-    const rows = parseIncomeCsv(csv);
+    const preview = previewIncomeCsv(csv);
+    if (!skipPreview && preview.rows.some((r) => r.errors.length > 0)) {
+      return NextResponse.json(
+        { error: "Validation errors", preview },
+        { status: 400 },
+      );
+    }
     let count = 0;
-    for (const row of rows) {
+    for (const row of preview.valid) {
       await prisma.incomeEntry.create({
         data: {
           userId: session.id,
@@ -29,12 +42,23 @@ export async function POST(request: Request) {
       });
       count++;
     }
-    return NextResponse.json({ ok: true, imported: count });
+    return NextResponse.json({
+      ok: true,
+      imported: count,
+      skippedDuplicates: preview.skippedDuplicates,
+    });
   }
 
-  const rows = parseObligationsCsv(csv);
+  const preview = previewObligationsCsv(csv);
+  if (!skipPreview && preview.rows.some((r) => r.errors.length > 0)) {
+    return NextResponse.json(
+      { error: "Validation errors", preview },
+      { status: 400 },
+    );
+  }
+
   let count = 0;
-  for (const row of rows) {
+  for (const row of preview.valid) {
     await prisma.obligation.create({
       data: buildObligationCreate(session.id, {
         name: row.name,
@@ -47,5 +71,9 @@ export async function POST(request: Request) {
     });
     count++;
   }
-  return NextResponse.json({ ok: true, imported: count });
+  return NextResponse.json({
+    ok: true,
+    imported: count,
+    skippedDuplicates: preview.skippedDuplicates,
+  });
 }

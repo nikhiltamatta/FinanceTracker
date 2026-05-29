@@ -121,7 +121,10 @@ export async function loginUser(
 ): Promise<SessionUser> {
   const normalized = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email: normalized } });
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (!user?.passwordHash) {
+    throw new Error("Invalid email or password");
+  }
+  if (!(await verifyPassword(password, user.passwordHash))) {
     throw new Error("Invalid email or password");
   }
   return { id: user.id, email: user.email, name: user.name };
@@ -187,7 +190,10 @@ export async function changePassword(
   newPassword: string,
 ): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+  if (!user?.passwordHash) {
+    throw new Error("Password login is not enabled for this account");
+  }
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
     throw new Error("Current password is incorrect");
   }
   await prisma.user.update({

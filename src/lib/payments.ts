@@ -4,12 +4,13 @@ import {
   startOfMonth,
 } from "date-fns";
 import { prisma } from "@/lib/db";
+import { getPlanningAmount } from "@/lib/obligations";
+import { toObligationInput } from "@/lib/mappers";
 
 export function getYearMonthKey(date: Date = new Date()): string {
   return format(date, "yyyy-MM");
 }
 
-/** Reset paidThisMonth flags when calendar month changes (per user). */
 export async function ensureMonthlyPaidReset(userId: string) {
   const currentKey = getYearMonthKey();
 
@@ -39,6 +40,24 @@ export async function ensureMonthlyPaidReset(userId: string) {
   ]);
 }
 
+export async function getPaidTotalThisMonth(
+  userId: string,
+  obligationId: string,
+): Promise<number> {
+  const monthStart = startOfMonth(new Date());
+  const monthEnd = endOfMonth(new Date());
+
+  const payments = await prisma.payment.findMany({
+    where: {
+      obligationId,
+      paidAt: { gte: monthStart, lte: monthEnd },
+      obligation: { userId },
+    },
+  });
+
+  return payments.reduce((s, p) => s + p.amount, 0);
+}
+
 export async function markObligationPaid(
   userId: string,
   obligationId: string,
@@ -55,7 +74,8 @@ export async function markObligationPaid(
   }
 
   const paidAt = options?.paidAt ?? new Date();
-  const amount = options?.amount ?? obligation.amount;
+  const amount = options?.amount ?? getPlanningAmount(toObligationInput(obligation));
+  const planningAmount = getPlanningAmount(toObligationInput(obligation));
 
   const [payment] = await prisma.$transaction([
     prisma.payment.create({
@@ -69,9 +89,19 @@ export async function markObligationPaid(
     }),
     prisma.obligation.update({
       where: { id: obligationId },
-      data: { paidThisMonth: true },
+      data: {
+        paidThisMonth: amount >= planningAmount * 0.99,
+      },
     }),
   ]);
+
+  const totalPaid = await getPaidTotalThisMonth(userId, obligationId);
+  if (totalPaid >= planningAmount * 0.99) {
+    await prisma.obligation.update({
+      where: { id: obligationId },
+      data: { paidThisMonth: true },
+    });
+  }
 
   return payment;
 }

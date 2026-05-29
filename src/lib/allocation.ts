@@ -23,6 +23,7 @@ import type {
   SettingsInput,
   UpcomingDue,
   WhatIfResult,
+  WhatIfScenario,
 } from "@/lib/types";
 
 export function getDueDatesForObligation(
@@ -115,7 +116,10 @@ export function collectUpcomingDues(
 }
 
 function sumAmount(items: UpcomingDue[]): number {
-  return items.reduce((sum, item) => sum + item.amount, 0);
+  return items.reduce((sum, item) => {
+    const remaining = Math.max(0, item.amount - (item.paidAmount ?? 0));
+    return sum + remaining;
+  }, 0);
 }
 
 function buildExplanation(
@@ -149,6 +153,7 @@ export function computePayPeriodPlan(
   options?: {
     rolloverAmount?: number;
     paidByObligation?: Record<string, number>;
+    goalsReserve?: number;
   },
 ): PayPeriodPlan {
   const { periodStart, periodEnd, nextPayday } = getPayPeriodWindow(
@@ -206,8 +211,10 @@ export function computePayPeriodPlan(
     settings.bufferAmount;
 
   const savingsTarget = (grossAvailable * settings.savingsPercent) / 100;
+  const goalsReserve = options?.goalsReserve ?? 0;
 
-  const availableBeforeSpend = grossAvailable - mustHold - savingsTarget;
+  const availableBeforeSpend =
+    grossAvailable - mustHold - savingsTarget - goalsReserve;
 
   const safeToSpend = Math.max(0, availableBeforeSpend);
   const catchUp = availableBeforeSpend < 0 ? Math.abs(availableBeforeSpend) : 0;
@@ -245,8 +252,10 @@ export function computePayPeriodPlan(
     incomeThisPeriod,
     incomeUsed,
     incomeSource,
+    averageIncome,
     rolloverAmount,
     savingsTarget,
+    goalsReserve,
     bufferAmount: settings.bufferAmount,
     availableBeforeSpend,
     safeToSpend,
@@ -261,28 +270,57 @@ export function computePayPeriodPlan(
 export function computeWhatIf(
   plan: PayPeriodPlan,
   extraCut: number,
+  context?: {
+    obligationId?: string;
+    obligationName?: string;
+    scenario?: WhatIfScenario;
+    obligationAmount?: number;
+    minimumDue?: number | null;
+  },
 ): WhatIfResult {
-  const newAvailable = plan.availableBeforeSpend + extraCut;
+  let cut = extraCut;
+  const scenario = context?.scenario ?? "cut";
+
+  if (context?.obligationId && scenario !== "cut") {
+    const full = context.obligationAmount ?? 0;
+    if (scenario === "skip") {
+      cut = full;
+    } else if (scenario === "minimum") {
+      cut = Math.max(0, full - (context.minimumDue ?? full));
+    }
+  }
+
+  const newAvailable = plan.availableBeforeSpend + cut;
   const newSafeToSpend = Math.max(0, newAvailable);
   const coversShortfall = plan.catchUp > 0 && newAvailable >= 0;
 
+  const label = context?.obligationName ?? "spending";
   let message: string;
-  if (extraCut <= 0) {
-    message = "Enter how much you could cut from flexible spending this period.";
+
+  if (scenario === "skip" && context?.obligationName) {
+    message = coversShortfall
+      ? `Skipping ${label} (${formatAmountInline(cut)}) would cover your shortfall.`
+      : `Skipping ${label} adds ${formatAmountInline(cut)} to safe-to-spend (total ${formatAmountInline(newSafeToSpend)}).`;
+  } else if (scenario === "minimum" && context?.obligationName) {
+    message = `Paying minimum on ${label} frees ${formatAmountInline(cut)} — safe-to-spend ${formatAmountInline(newSafeToSpend)}.`;
+  } else if (cut <= 0) {
+    message = "Enter an amount or pick a bill scenario.";
   } else if (coversShortfall) {
-    message = `Cutting ${formatAmountInline(extraCut)} would cover your ${formatAmountInline(plan.catchUp)} shortfall.`;
+    message = `Cutting ${formatAmountInline(cut)} would cover your ${formatAmountInline(plan.catchUp)} shortfall.`;
   } else if (plan.catchUp > 0) {
-    const stillShort = plan.catchUp - extraCut;
-    message = `You would still be short ${formatAmountInline(Math.max(0, stillShort))} after cutting ${formatAmountInline(extraCut)}.`;
+    const stillShort = plan.catchUp - cut;
+    message = `You would still be short ${formatAmountInline(Math.max(0, stillShort))} after cutting ${formatAmountInline(cut)}.`;
   } else {
-    message = `You could add ${formatAmountInline(extraCut)} to safe-to-spend (total ${formatAmountInline(newSafeToSpend)}).`;
+    message = `You could add ${formatAmountInline(cut)} to safe-to-spend (total ${formatAmountInline(newSafeToSpend)}).`;
   }
 
   return {
-    extraCut,
+    extraCut: cut,
     newSafeToSpend,
     coversShortfall,
     message,
+    obligationId: context?.obligationId,
+    scenario,
   };
 }
 

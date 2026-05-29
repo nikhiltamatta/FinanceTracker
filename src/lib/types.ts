@@ -68,8 +68,10 @@ export interface PayPeriodPlan {
   incomeThisPeriod: number;
   incomeUsed: number;
   incomeSource: "actual" | "average" | "expected";
+  averageIncome?: number;
   rolloverAmount: number;
   savingsTarget: number;
+  goalsReserve: number;
   bufferAmount: number;
   availableBeforeSpend: number;
   safeToSpend: number;
@@ -80,11 +82,15 @@ export interface PayPeriodPlan {
   horizonEnd: Date;
 }
 
+export type WhatIfScenario = "cut" | "skip" | "minimum" | "custom";
+
 export interface WhatIfResult {
   extraCut: number;
   newSafeToSpend: number;
   coversShortfall: boolean;
   message: string;
+  obligationId?: string;
+  scenario?: WhatIfScenario;
 }
 
 export interface LoanPayoffProjection {

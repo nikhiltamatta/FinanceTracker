@@ -17,6 +17,7 @@ export type ObligationRow = {
   priority: string;
   active: boolean;
   paidThisMonth: boolean;
+  sharedWithHousehold?: boolean;
   lender: string | null;
   note: string | null;
   minimumDue: number | null;
@@ -69,6 +70,7 @@ export function ObligationList({
         priority: form.get("priority"),
         minimumDue: form.get("minimumDue") || null,
         active: form.get("active") === "on",
+        sharedWithHousehold: form.get("sharedWithHousehold") === "on",
       }),
     });
     setEditing(null);
@@ -209,6 +211,14 @@ export function ObligationList({
               <label className="flex items-center gap-2">
                 <input name="active" type="checkbox" defaultChecked={editing.active} />
                 Active
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  name="sharedWithHousehold"
+                  type="checkbox"
+                  defaultChecked={editing.sharedWithHousehold}
+                />
+                Share with household
               </label>
             </div>
             <div className="mt-4 flex gap-2">

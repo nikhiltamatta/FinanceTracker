@@ -3,14 +3,24 @@ import { AlertList } from "@/components/AlertList";
 import { DueItemRow } from "@/components/DueItemRow";
 import { MoneyCard } from "@/components/MoneyCard";
 import { StatusBadge } from "@/components/StatusBadge";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { WhatIfPanel } from "@/components/WhatIfPanel";
 import { getPlanData } from "@/lib/data";
 import { formatDate, formatMoney } from "@/lib/format";
+import { getPlanningAmount } from "@/lib/obligations";
+import { toObligationInput } from "@/lib/mappers";
 import { requireUser } from "@/lib/page-auth";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const { settings, plan, alerts, obligations } = await getPlanData(user.id);
+  const {
+    settings,
+    plan,
+    alerts,
+    obligations,
+    incomeEntries,
+    paidByObligation,
+  } = await getPlanData(user.id);
 
   if (!settings.onboardingComplete) {
     redirect("/onboarding");
@@ -21,8 +31,33 @@ export default async function DashboardPage() {
     obligations.map((o) => [o.id, o.paidThisMonth]),
   );
 
+  const whatIfObligations = obligations
+    .filter((o) => o.active)
+    .map((o) => {
+      const input = toObligationInput(o);
+      return {
+        id: o.id,
+        name: o.name,
+        amount: getPlanningAmount(input),
+        minimumDue: o.minimumDue,
+        category: o.category,
+      };
+    });
+
+  const incomeLabel =
+    plan.incomeSource === "average"
+      ? `avg ${formatMoney(plan.averageIncome ?? plan.incomeUsed, currency)} / period`
+      : plan.incomeSource === "expected"
+        ? `expected ${formatMoney(plan.incomeUsed, currency)}`
+        : `logged ${formatMoney(plan.incomeThisPeriod, currency)}`;
+
   return (
     <div className="space-y-8">
+      <OnboardingChecklist
+        hasObligations={obligations.length > 0}
+        hasIncome={incomeEntries.length > 0}
+        onboardingComplete={settings.onboardingComplete}
+      />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -50,7 +85,8 @@ export default async function DashboardPage() {
         />
         <MoneyCard
           label="Income this period"
-          amount={formatMoney(plan.incomeThisPeriod, currency)}
+          amount={formatMoney(plan.incomeUsed, currency)}
+          hint={incomeLabel}
         />
         <MoneyCard
           label="Catch-up needed"
@@ -65,14 +101,37 @@ export default async function DashboardPage() {
           {plan.explanation}
         </p>
         <p className="mt-2 text-xs text-zinc-500">
-          Income source: {plan.incomeSource}
+          Income: {incomeLabel}
+          {plan.goalsReserve > 0
+            ? ` · Goals reserve ${formatMoney(plan.goalsReserve, currency)}`
+            : ""}
           {plan.rolloverAmount > 0
             ? ` · Rollover ${formatMoney(plan.rolloverAmount, currency)}`
             : ""}
         </p>
+        {plan.mustHoldBreakdown.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {plan.mustHoldBreakdown.map((item) => {
+              const paid = item.paidAmount ?? 0;
+              const remaining = Math.max(0, item.amount - paid);
+              return (
+                <li
+                  key={item.obligationId}
+                  className="rounded-full bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800"
+                >
+                  {item.name}: {formatMoney(remaining, currency)}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </section>
 
-      <WhatIfPanel currency={currency} currentSafeToSpend={plan.safeToSpend} />
+      <WhatIfPanel
+        currency={currency}
+        currentSafeToSpend={plan.safeToSpend}
+        obligations={whatIfObligations}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
@@ -90,6 +149,7 @@ export default async function DashboardPage() {
                   dueDate={item.dueDate}
                   currency={currency}
                   paidThisMonth={paidMap.get(item.obligationId) ?? false}
+                  paidAmount={paidByObligation[item.obligationId] ?? 0}
                 />
               ))}
             </ul>
@@ -117,6 +177,7 @@ export default async function DashboardPage() {
                 dueDate={item.dueDate}
                 currency={currency}
                 paidThisMonth={paidMap.get(item.obligationId) ?? false}
+                paidAmount={paidByObligation[item.obligationId] ?? 0}
               />
             ))}
           </ul>
@@ -156,6 +217,7 @@ export default async function DashboardPage() {
                   }
                   currency={currency}
                   paidThisMonth={o.paidThisMonth}
+                  paidAmount={paidByObligation[o.id] ?? 0}
                 />
               ))}
           </ul>

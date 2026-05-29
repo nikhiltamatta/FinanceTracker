@@ -19,7 +19,15 @@ Pay-period cash flow planner for weekly income and scattered monthly bills (rent
 - **Calendar** — month view of income and dues with alerts and mark-paid
 - **Analytics** — 6-month income/paid/due trends and category breakdown
 - **Reports** — monthly summary with CSV and PDF download
-- **Mark paid** — record payments on Home, Obligations, and Calendar (auto-resets each month)
+- **Mark paid** — full or partial payments; progress counts toward must-hold
+- **Savings goals** (`/goals`) — reserve amounts reduce safe-to-spend
+- **Recurring income** — auto-log paychecks on your pay weekday
+- **Household** — share bills with a partner via invite code
+- **Google sign-in** — optional OAuth (see `.env.example`)
+- **Email** — password reset & bill reminders via Resend
+- **PWA** — installable from browser (`manifest.json`)
+- **Backup** — JSON export from Settings
+- **Deploy** — see [DEPLOY.md](DEPLOY.md) for Vercel + Neon
 
 ## Stack
 

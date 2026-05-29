@@ -30,6 +30,7 @@ export default async function ObligationsPage() {
           priority: o.priority,
           active: o.active,
           paidThisMonth: o.paidThisMonth,
+          sharedWithHousehold: o.sharedWithHousehold,
           lender: o.lender,
           note: o.note,
           minimumDue: o.minimumDue,

@@ -1,0 +1,16 @@
+{
+  "name": "FinanceTracker",
+  "short_name": "Finance",
+  "description": "Pay-period planning for weekly income and monthly bills",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

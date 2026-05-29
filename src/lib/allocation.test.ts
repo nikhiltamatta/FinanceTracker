@@ -132,6 +132,42 @@ describe("computePayPeriodPlan", () => {
     expect(plan.catchUp).toBeGreaterThan(0);
   });
 
+  it("reduces must-hold when partial payments recorded", () => {
+    const today = new Date(2026, 4, 1);
+    const planFull = computePayPeriodPlan(
+      today,
+      baseSettings,
+      [rent, emi7],
+      [{ id: "1", date: new Date(2026, 4, 1), amount: 20000 }],
+      { paidByObligation: {} },
+    );
+    expect(planFull.mustHold).toBeGreaterThan(0);
+    const planPartial = computePayPeriodPlan(
+      today,
+      baseSettings,
+      [rent, emi7],
+      [{ id: "1", date: new Date(2026, 4, 1), amount: 20000 }],
+      { paidByObligation: { rent: rent.amount } },
+    );
+    expect(planPartial.mustHold).toBeLessThan(planFull.mustHold);
+  });
+
+  it("subtracts goals reserve from safe-to-spend", () => {
+    const today = new Date(2026, 4, 5);
+    const without = computePayPeriodPlan(today, baseSettings, [], [
+      { id: "1", date: new Date(2026, 4, 2), amount: 20000 },
+    ]);
+    const withGoals = computePayPeriodPlan(
+      today,
+      baseSettings,
+      [],
+      [{ id: "1", date: new Date(2026, 4, 2), amount: 20000 }],
+      { goalsReserve: 3000 },
+    );
+    expect(withGoals.safeToSpend).toBeLessThan(without.safeToSpend);
+    expect(withGoals.goalsReserve).toBe(3000);
+  });
+
   it("exposes income source and supports what-if cuts", () => {
     const today = new Date(2026, 4, 5);
     const plan = computePayPeriodPlan(today, baseSettings, [rent], []);

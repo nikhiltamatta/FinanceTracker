@@ -245,9 +245,23 @@ export default function LandingPage() {
           </p>
           <p className="mt-4 text-zinc-400">
             Made by{" "}
-            <span className="text-zinc-600 dark:text-zinc-300">
+            <a
+              href="https://github.com/nikhiltamatta"
+              className="text-zinc-600 hover:underline dark:text-zinc-300"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
               Nikhil Tamatta
-            </span>
+            </a>
+            {" · "}
+            <a
+              href="https://github.com/nikhiltamatta/FinanceTracker"
+              className="hover:underline"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Source on GitHub
+            </a>
           </p>
         </div>
       </footer>

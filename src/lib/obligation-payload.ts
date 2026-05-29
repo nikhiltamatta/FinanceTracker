@@ -51,6 +51,8 @@ export function parseObligationBody(body: Record<string, unknown>) {
           ? Number(body.interestRate)
           : null
         : undefined,
+    sharedWithHousehold: body.sharedWithHousehold as boolean | undefined,
+    householdId: body.householdId as string | null | undefined,
   };
 }
 
@@ -77,5 +79,7 @@ export function buildObligationCreate(
     statementBalance: p.statementBalance ?? null,
     loanEndDate: p.loanEndDate ?? null,
     interestRate: p.interestRate ?? null,
+    sharedWithHousehold: p.sharedWithHousehold ?? false,
+    householdId: p.householdId ?? null,
   };
 }

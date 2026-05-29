@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FinanceTracker",
   description: "Pay-period cash flow planning for weekly income",
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, title: "FinanceTracker" },
 };
 
 export default function RootLayout({

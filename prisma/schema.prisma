@@ -8,17 +8,22 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  passwordHash       String
-  name               String?
-  emailVerified      Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  settings           UserSettings?
-  obligations        Obligation[]
-  incomeEntries      IncomeEntry[]
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String?
+  name                String?
+  emailVerified       Boolean              @default(false)
+  googleId            String?              @unique
+  createdAt           DateTime             @default(now())
+  settings            UserSettings?
+  obligations         Obligation[]
+  incomeEntries       IncomeEntry[]
+  recurringIncomes    RecurringIncome[]
+  savingsGoals        SavingsGoal[]
   allocationSnapshots AllocationSnapshot[]
   passwordResetTokens PasswordResetToken[]
+  householdMembers    HouseholdMember[]
+  ownedHouseholds     Household[]          @relation("HouseholdOwner")
 }
 
 model UserSettings {
@@ -39,14 +44,44 @@ model UserSettings {
   rolloverSafeToSpend  Boolean  @default(false)
   incomeAverageWeeks   Int      @default(4)
   emailReminders       Boolean  @default(true)
+  onboardingChecklist  String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
 
+model Household {
+  id        String            @id @default(cuid())
+  name      String
+  inviteCode String           @unique
+  ownerId   String
+  owner     User              @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   HouseholdMember[]
+  obligations Obligation[]
+  createdAt DateTime          @default(now())
+
+  @@index([ownerId])
+}
+
+model HouseholdMember {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("member")
+  joinedAt    DateTime  @default(now())
+
+  @@unique([householdId, userId])
+  @@index([userId])
+}
+
 model Obligation {
-  id               String    @id @default(cuid())
+  id               String     @id @default(cuid())
   userId           String
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId      String?
+  household        Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  sharedWithHousehold Boolean @default(false)
   name             String
   category         String
   amount           Float
@@ -54,9 +89,9 @@ model Obligation {
   dueDayOfMonth    Int?
   dueEveryNWeeks   Int?
   dueOneOffDate    DateTime?
-  priority         String    @default("must_pay")
-  active           Boolean   @default(true)
-  paidThisMonth    Boolean   @default(false)
+  priority         String     @default("must_pay")
+  active           Boolean    @default(true)
+  paidThisMonth    Boolean    @default(false)
   lender           String?
   note             String?
   minimumDue       Float?
@@ -64,10 +99,11 @@ model Obligation {
   loanEndDate      DateTime?
   interestRate     Float?
   payments         Payment[]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@index([userId])
+  @@index([householdId])
 }
 
 model Payment {
@@ -93,18 +129,48 @@ model IncomeEntry {
   @@index([userId])
 }
 
-model AllocationSnapshot {
+model RecurringIncome {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  periodStart  DateTime
-  periodEnd    DateTime
-  mustHold     Float
-  safeToSpend  Float
-  catchUp      Float
-  incomeUsed   Float
-  computedAt   DateTime @default(now())
+  amount       Float
+  payDayOfWeek Int
+  note         String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
+  @@index([userId])
+}
+
+model SavingsGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  targetDate    DateTime?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model AllocationSnapshot {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+  mustHold    Float
+  safeToSpend Float
+  catchUp     Float
+  incomeUsed  Float
+  computedAt  DateTime @default(now())
+
+  @@unique([userId, periodStart, periodEnd])
   @@index([userId, computedAt])
 }
 
